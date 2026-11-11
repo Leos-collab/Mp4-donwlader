@@ -12,23 +12,30 @@ def format_bytes(size):
     return f"{size:.1f} TB"
 
 def progress_bar(info):
-    if info['status'] == 'downloading':
-        pct = info['percent']
-        speed = format_bytes(info['speed']) + "/s"
-        eta = f"{int(info['eta'])}s" if info['eta'] else "--"
+    status = info.get('status')
+    if status == 'downloading':
+        pct = info.get('percent', 0.0)
+        speed = format_bytes(info.get('speed', 0)) + "/s"
+        eta = f"{int(info.get('eta', 0))}s" if info.get('eta') else "--"
         bar_len = 30
         filled = int(bar_len * pct / 100)
         bar = '█' * filled + '-' * (bar_len - filled)
         sys.stdout.write(f"\r[{bar}] {pct:5.1f}% | Vel: {speed} | Restante: {eta}")
         sys.stdout.flush()
-    elif info['status'] == 'finished':
-        sys.stdout.write("\nConcluindo processamento/mesclagem...\n")
+    elif status == 'processing':
+        sys.stdout.write("\nFluxo baixado. Preparando arquivos...\n")
+        sys.stdout.flush()
+    elif status == 'merging':
+        sys.stdout.write("\n🎬 Mesclando áudio e vídeo com FFmpeg em MP4... (por favor aguarde)\n")
+        sys.stdout.flush()
+    elif status == 'finished':
+        sys.stdout.write("\nConcluído com sucesso!\n")
         sys.stdout.flush()
 
 def main():
-    print("=" * 55)
-    print("      🎬 BAIXADOR DE VÍDEOS MP4 - PYTHON 🎬")
-    print("=" * 55)
+    print("=" * 60)
+    print(" 🎬 BAIXADOR DE VÍDEOS MP4 (YouTube, TikTok, Instagram) 🎬")
+    print("=" * 60)
     
     output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "videos")
     os.makedirs(output_dir, exist_ok=True)

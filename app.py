@@ -3,7 +3,7 @@ import sys
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from downloader import download_video
+from downloader import download_video, merge_leftover_streams
 
 def format_bytes(size):
     if not size:
@@ -35,6 +35,9 @@ class VideoDownloaderApp:
         self.dest_folder = tk.StringVar(value=self.default_dir)
         self.is_downloading = False
 
+        # Verifica e mescla automaticamente arquivos residuais se houver
+        threading.Thread(target=merge_leftover_streams, args=(self.default_dir,), daemon=True).start()
+
         self._create_widgets()
 
     def _create_widgets(self):
@@ -52,7 +55,7 @@ class VideoDownloaderApp:
 
         subtitle_label = ttk.Label(
             main_frame, 
-            text="Cole o link do vídeo para baixar em alta qualidade.", 
+            text="Suporta YouTube, TikTok, Instagram (Reels), Twitter/X e mais.", 
             font=("Segoe UI", 9)
         )
         subtitle_label.pack(anchor="w", pady=(0, 15))
@@ -183,18 +186,27 @@ class VideoDownloaderApp:
         return mapping.get(self.quality_var.get(), "best")
 
     def _update_progress(self, info):
-        if info['status'] == 'downloading':
+        status = info.get('status')
+        if status == 'downloading':
             pct = info.get('percent', 0.0)
             speed = format_bytes(info.get('speed', 0)) + "/s"
             eta = f"{int(info.get('eta', 0))}s" if info.get('eta') else "--"
             
             self.progress_bar['value'] = pct
-            self.status_label.config(text=f"Baixando: {info.get('filename', '')[:35]}...")
+            filename = info.get('filename', '')
+            self.status_label.config(text=f"Baixando: {filename[:38]}..." if filename else "Baixando...")
             self.details_label.config(text=f"{pct:5.1f}% | {speed} | Restante: {eta}")
-        elif info['status'] == 'finished':
+        elif status == 'processing':
+            self.status_label.config(text="Fluxo baixado. Preparando áudio e vídeo...")
+            self.details_label.config(text="Aguarde...")
+        elif status == 'merging':
             self.progress_bar['value'] = 100
-            self.status_label.config(text="Processando / Mesclando arquivos de vídeo e áudio...")
-            self.details_label.config(text="Quase pronto...")
+            self.status_label.config(text="🎬 Mesclando áudio e vídeo em MP4 com FFmpeg...")
+            self.details_label.config(text="Não feche a janela!")
+        elif status == 'finished':
+            self.progress_bar['value'] = 100
+            self.status_label.config(text="Finalizando...")
+            self.details_label.config(text="100%")
 
     def _download_worker(self, url, folder, quality_code):
         try:
